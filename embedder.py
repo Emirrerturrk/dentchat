@@ -14,30 +14,38 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_api_key() -> Optional[str]:
+    # 1. Ortam Değişkenleri (.env veya os.environ)
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not key:
-        try:
-            import streamlit as st
-            if "GEMINI_API_KEY" in st.secrets:
-                key = st.secrets["GEMINI_API_KEY"]
-            elif "GOOGLE_API_KEY" in st.secrets:
-                key = st.secrets["GOOGLE_API_KEY"]
-        except Exception:
-            pass
-    return key
+    if key:
+        return key.strip().strip('"').strip("'")
 
-API_KEY = get_api_key()
+    # 2. Streamlit Cloud Secrets (Bulut Sunucu Kasası)
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            if "GEMINI_API_KEY" in st.secrets:
+                return str(st.secrets["GEMINI_API_KEY"]).strip().strip('"').strip("'")
+            if "GOOGLE_API_KEY" in st.secrets:
+                return str(st.secrets["GOOGLE_API_KEY"]).strip().strip('"').strip("'")
+    except Exception:
+        pass
+
+    return None
+
 
 class GeminiEmbedder:
     def __init__(self, api_key: Optional[str] = None, model_name: str = "models/gemini-embedding-001"):
-        self.api_key = api_key or API_KEY
+        self.api_key = api_key or get_api_key()
         self.model_name = model_name
         self.client = None
         self._init_client()
 
     def _init_client(self):
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY bulunamadı. Lütfen .env dosyasını kontrol edin.")
+            self.api_key = get_api_key()
+            
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY bulunamadı. Lütfen Streamlit Secrets veya .env dosyasını kontrol edin.")
         
         # Yeni google-genai veya klasik google.generativeai desteği
         try:

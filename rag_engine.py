@@ -17,21 +17,26 @@ from embedder import GeminiEmbedder
 load_dotenv()
 
 def get_api_key() -> Optional[str]:
+    # 1. Ortam Değişkenleri (.env veya os.environ)
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not key:
-        try:
-            import streamlit as st
+    if key:
+        return key.strip().strip('"').strip("'")
+
+    # 2. Streamlit Cloud Secrets (Bulut Sunucu Kasası)
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
             if "GEMINI_API_KEY" in st.secrets:
-                key = st.secrets["GEMINI_API_KEY"]
-            elif "GOOGLE_API_KEY" in st.secrets:
-                key = st.secrets["GOOGLE_API_KEY"]
-        except Exception:
-            pass
-    return key
+                return str(st.secrets["GEMINI_API_KEY"]).strip().strip('"').strip("'")
+            if "GOOGLE_API_KEY" in st.secrets:
+                return str(st.secrets["GOOGLE_API_KEY"]).strip().strip('"').strip("'")
+    except Exception:
+        pass
+
+    return None
 
 CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 COLLECTION_NAME = "dis_hekimligi_rag"
-API_KEY = get_api_key()
 
 GUARDRAIL_SYSTEM_PROMPT = """Sen diş hekimliği fakültesi ders notları ve medikal kılavuzlar konusunda uzmanlaşmış akademik bir asistansın.
 Görevin, kullanıcının sorularını YALNIZCA sana sağlanan 'BAĞLAM' (Ders Slaytları ve Sayfaları) içeriğine sadık kalarak, doğrudan, akıcı ve net bir dille yanıtlamaktır.
@@ -46,24 +51,28 @@ KAT'İ KURALLAR:
 
 
 class RAGEngine:
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str = "gemini-2.5-flash", api_key: Optional[str] = None):
+        self.api_key = api_key or get_api_key()
         self.chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
         self.collection = self.chroma_client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"}
         )
-        self.embedder = GeminiEmbedder()
+        self.embedder = GeminiEmbedder(api_key=self.api_key)
         self.model_name = model_name
         self._init_llm()
 
     def _init_llm(self):
+        key = self.api_key or get_api_key()
+        if not key:
+            raise ValueError("GEMINI_API_KEY bulunamadı. Lütfen Streamlit Secrets veya .env dosyasını kontrol edin.")
         try:
             from google import genai
-            self.genai_client = genai.Client(api_key=API_KEY)
+            self.genai_client = genai.Client(api_key=key)
             self.use_new_sdk = True
         except ImportError:
             import google.generativeai as genai_legacy  # type: ignore
-            genai_legacy.configure(api_key=API_KEY)
+            genai_legacy.configure(api_key=key)
             self.genai_client = genai_legacy.GenerativeModel(
                 model_name="gemini-1.5-flash",
                 system_instruction=GUARDRAIL_SYSTEM_PROMPT
