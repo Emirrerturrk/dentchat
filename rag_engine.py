@@ -115,9 +115,61 @@ class RAGEngine:
 
         return retrieved_docs
 
-    def ask(self, question: str, category_filter: Optional[str] = None) -> Dict[str, Any]:
-        """Soruyu yanıtlar ve kaynak parçalarıyla birlikte döndürür."""
-        relevant_chunks = self.retrieve(question, top_k=4, category_filter=category_filter)
+    def contextualize_question(self, question: str, chat_history: Optional[List[Dict[str, Any]]] = None) -> str:
+        """
+        Kullanıcı bir devam sorusu sorduğunda (örn: 'peki bunun tedavisi?', '2. maddeyi açıkla'),
+        soruyu sohbet geçmişiyle harmanlayarak bağımsız, anahtar kelimeleri içeren bir arama sorgusuna dönüştürür.
+        """
+        if not chat_history or len(chat_history) < 2:
+            return question
+
+        # Son 2 soru ve cevabı bağlam için al
+        history_lines = []
+        for msg in chat_history[-4:]:
+            role = "Öğrenci" if msg.get("role") == "user" else "Asistan"
+            content = str(msg.get("content", ""))[:200].strip()
+            if content:
+                history_lines.append(f"{role}: {content}")
+
+        if not history_lines:
+            return question
+
+        history_context = "\n".join(history_lines)
+        rephrase_prompt = f"""Aşağıdaki diş hekimliği ders sohbet geçmişini ve kullanıcının son sorusunu oku.
+Kullanıcının son sorusu önceki konuşmaya gönderme yapıyorsa (örneğin 'bunun tedavisi', 'peki neden?', '2. madde'), veritabanından doğru slaytları bulabilmek için soruyu tek başına anlaşılır, tıbbi terimleri içeren bağımsız bir arama cümlesine dönüştür.
+
+SOHBET GEÇMİŞİ:
+{history_context}
+
+KULLANICININ SON SORUSU: {question}
+
+KURAL: Soruya cevap verme. Sadece veritabanında aranacak tek bir Türkçe arama cümlesi yaz:"""
+
+        try:
+            if self.use_new_sdk:
+                resp = self.genai_client.models.generate_content(
+                    model=self.model_name,
+                    contents=rephrase_prompt
+                )
+                rephrased = resp.text.strip()
+            else:
+                resp = self.genai_client.generate_content(rephrase_prompt)
+                rephrased = resp.text.strip()
+
+            if rephrased and len(rephrased) < 250:
+                return rephrased
+        except Exception:
+            pass
+
+        return question
+
+    def ask(self, question: str, chat_history: Optional[List[Dict[str, Any]]] = None, category_filter: Optional[str] = None) -> Dict[str, Any]:
+        """Soruyu yanıtlar ve kaynak parçalarıyla birlikte döndürür (Bağlam takipli)."""
+        # 1. Takip eden sorularda konuyu kaybetmemek için sorguyu bağlamsallaştır
+        search_query = self.contextualize_question(question, chat_history=chat_history)
+
+        # 2. Vektör veritabanından ilgili slaytları çek
+        relevant_chunks = self.retrieve(search_query, top_k=4, category_filter=category_filter)
 
         if not relevant_chunks:
             return {
@@ -140,32 +192,53 @@ class RAGEngine:
             })
 
         full_context = "\n".join(context_parts)
-        user_prompt = f"""AŞAĞIDAKİ BAĞLAMI DİKKATLİCE İNCELE VE SORUYU YANITLA:
+
+        # Önceki sohbet özeti (Varsa)
+        prev_chat_context = ""
+        if chat_history and len(chat_history) >= 2:
+            prev_lines = []
+            for msg in chat_history[-4:]:
+                r = "Kullanıcı" if msg.get("role") == "user" else "Asistan"
+                prev_lines.append(f"{r}: {str(msg.get('content', ''))[:200]}")
+            prev_chat_context = "ÖNCEKİ DİYALOG BAĞLAMI:\n" + "\n".join(prev_lines) + "\n\n"
+
+        user_prompt = f"""{prev_chat_context}AŞAĞIDAKİ DERS DOKÜMANLARINI DİKKATLİCE İNCELE VE YANITLA:
 
 {full_context}
 
 KULLANICI SORUSU: {question}
 
-ÖNEMLİ KURAL: Yanıtının içine KESİNLİKLE dosya adı, sayfa/slayt numarası veya '[Kaynak: ...]' yazma. Yalnızca sorunun doğrudan ve anlaşılır cevabını Türkçe olarak yaz:"""
+ÖNEMLİ KURAL: Yanıtının içine KESİNLİKLE dosya adı, sayfa/slayt numarası veya '[Kaynak: ...]' yazma. Eğer önceki diyalogla ilgili bir devam sorusuysa önceki cevabınla tutarlı, doğrudan ve anlaşılır bir Türkçe yanıt ver:"""
 
-        try:
-            if self.use_new_sdk:
-                # google-genai SDK
-                response = self.genai_client.models.generate_content(
-                    model=self.model_name,
-                    contents=user_prompt,
-                    config={
-                        "system_instruction": GUARDRAIL_SYSTEM_PROMPT,
-                        "temperature": 0.2, # Düşük yaratıcılık = sıfır halüsinasyon
+        import time
+        answer_text = ""
+        for attempt in range(3):
+            try:
+                if self.use_new_sdk:
+                    # google-genai SDK
+                    response = self.genai_client.models.generate_content(
+                        model=self.model_name,
+                        contents=user_prompt,
+                        config={
+                            "system_instruction": GUARDRAIL_SYSTEM_PROMPT,
+                            "temperature": 0.2, # Düşük yaratıcılık = sıfır halüsinasyon
+                        }
+                    )
+                    answer_text = response.text
+                else:
+                    response = self.genai_client.generate_content(
+                        user_prompt,
+                        generation_config={"temperature": 0.2}
+                    )
+                    answer_text = response.text
+                break
+            except Exception as e:
+                if attempt == 2:
+                    return {
+                        "answer": f"Yapay zeka yanıtı üretilirken bir sorun oluştu: {str(e)}",
+                        "sources": sources
                     }
-                )
-                answer_text = response.text
-            else:
-                response = self.genai_client.generate_content(
-                    user_prompt,
-                    generation_config={"temperature": 0.2}
-                )
-                answer_text = response.text
+                time.sleep(2 * (attempt + 1))
 
             # Metin içindeki olası kaynak etiketlerini ve sorumluluk notlarını temizle
             clean_answer = re.sub(r"\[Kaynak:[^\]]*\]", "", answer_text, flags=re.IGNORECASE)
@@ -180,10 +253,5 @@ KULLANICI SORUSU: {question}
 
             return {
                 "answer": clean_answer,
-                "sources": sources
-            }
-        except Exception as e:
-            return {
-                "answer": f"Yapay zeka yanıtı üretilirken bir sorun oluştu: {str(e)}",
                 "sources": sources
             }

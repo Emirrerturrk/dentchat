@@ -271,7 +271,9 @@ def main():
         with st.chat_message("assistant", avatar="🦷"):
             with st.spinner("İlgili slaytlar taranıyor ve doğrulanmış yanıt hazırlanıyor..."):
                 engine = load_engine()
-                result = engine.ask(prompt_to_use, category_filter=selected_category)
+                # Önceki mesajları bağlam olarak ilet
+                history = st.session_state.messages[:-1] if len(st.session_state.messages) > 1 else []
+                result = engine.ask(prompt_to_use, chat_history=history, category_filter=selected_category)
                 answer = result["answer"]
                 sources = result["sources"]
 
