@@ -9,23 +9,25 @@ Uç noktalar:
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-import os
+from contextlib import asynccontextmanager
 
 from rag_engine import RAGEngine
 from indexer import get_chroma_collection
 
+engine = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global engine
+    engine = RAGEngine()
+    yield
+
 app = FastAPI(
     title="Diş Hekimliği RAG API",
     description="Akademik diş hekimliği ders notları ve kılavuzları için doğrulanmış RAG soru-cevap servisi",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
-
-engine = None
-
-@app.on_event("startup")
-def startup_event():
-    global engine
-    engine = RAGEngine()
 
 
 class QueryRequest(BaseModel):

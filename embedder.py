@@ -32,7 +32,7 @@ class GeminiEmbedder:
             self.client = genai.Client(api_key=self.api_key)
             self.use_new_sdk = True
         except ImportError:
-            import google.generativeai as genai_legacy
+            import google.generativeai as genai_legacy  # type: ignore
             genai_legacy.configure(api_key=self.api_key)
             self.client = genai_legacy
             self.use_new_sdk = False
@@ -63,7 +63,7 @@ class GeminiEmbedder:
                         for emb in response.embeddings:
                             all_embeddings.append(emb.values)
                     else:
-                        import google.generativeai as genai_legacy
+                        import google.generativeai as genai_legacy  # type: ignore
                         result = genai_legacy.embed_content(
                             model=self.model_name,
                             content=batch,
@@ -94,5 +94,5 @@ class GeminiEmbedder:
 def generate_chunk_id(source: str, page: int, content: str) -> str:
     """Tekil ve kararlı bir chunk ID üretir (içerik hash'i bazlı)."""
     content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()[:10]
-    safe_source = re_safe = "".join(c for c in source if c.isalnum() or c in ("-", "_")).rstrip()
+    safe_source = "".join(c for c in source if c.isalnum() or c in ("-", "_")).rstrip()
     return f"{safe_source}_p{page}_{content_hash}"

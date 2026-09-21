@@ -8,7 +8,6 @@ Token Tasarrufu:
 import os
 import sys
 import glob
-from typing import List, Dict, Any
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -96,7 +95,6 @@ def index_documents():
             print("  ⚠️ Metin çıkarılamadı veya boş.")
             continue
 
-        new_chunks = []
         new_ids = []
         new_metadatas = []
         new_documents = []

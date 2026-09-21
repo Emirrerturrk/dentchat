@@ -49,7 +49,7 @@ class RAGEngine:
             self.genai_client = genai.Client(api_key=API_KEY)
             self.use_new_sdk = True
         except ImportError:
-            import google.generativeai as genai_legacy
+            import google.generativeai as genai_legacy  # type: ignore
             genai_legacy.configure(api_key=API_KEY)
             self.genai_client = genai_legacy.GenerativeModel(
                 model_name="gemini-1.5-flash",

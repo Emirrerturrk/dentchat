@@ -8,7 +8,6 @@ Tasarım Prensipleri:
 """
 
 import streamlit as st
-import os
 from dotenv import load_dotenv
 
 from rag_engine import RAGEngine
