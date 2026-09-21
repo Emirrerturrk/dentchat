@@ -13,7 +13,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+def get_api_key() -> Optional[str]:
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        try:
+            import streamlit as st
+            if "GEMINI_API_KEY" in st.secrets:
+                key = st.secrets["GEMINI_API_KEY"]
+            elif "GOOGLE_API_KEY" in st.secrets:
+                key = st.secrets["GOOGLE_API_KEY"]
+        except Exception:
+            pass
+    return key
+
+API_KEY = get_api_key()
 
 class GeminiEmbedder:
     def __init__(self, api_key: Optional[str] = None, model_name: str = "models/gemini-embedding-001"):

@@ -16,9 +16,22 @@ from embedder import GeminiEmbedder
 
 load_dotenv()
 
+def get_api_key() -> Optional[str]:
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        try:
+            import streamlit as st
+            if "GEMINI_API_KEY" in st.secrets:
+                key = st.secrets["GEMINI_API_KEY"]
+            elif "GOOGLE_API_KEY" in st.secrets:
+                key = st.secrets["GOOGLE_API_KEY"]
+        except Exception:
+            pass
+    return key
+
 CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 COLLECTION_NAME = "dis_hekimligi_rag"
-API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+API_KEY = get_api_key()
 
 GUARDRAIL_SYSTEM_PROMPT = """Sen diş hekimliği fakültesi ders notları ve medikal kılavuzlar konusunda uzmanlaşmış akademik bir asistansın.
 Görevin, kullanıcının sorularını YALNIZCA sana sağlanan 'BAĞLAM' (Ders Slaytları ve Sayfaları) içeriğine sadık kalarak, doğrudan, akıcı ve net bir dille yanıtlamaktır.
