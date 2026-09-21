@@ -1,0 +1,18 @@
+# API Anahtarları ve Gizli Çevre Değişkenleri (ASLA GİTHUB'A GİTMEZ)
+.env
+.env*.local
+*.env
+
+# Python Sanal Ortamı
+.venv/
+venv/
+ENV/
+
+# Python Önbellek Dosyaları
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ham Doküman Havuzu (160+ MB olduğu için repoyu şişirmemesi adına hariç tutulur)
+pdfler/

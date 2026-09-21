@@ -1,0 +1,23 @@
+# Doküman İşleme & Veri Ayrıştırma (Data Parsing)
+pymupdf>=1.24.0
+python-pptx>=1.0.0
+pdfplumber>=0.11.0
+
+# Vektör Veritabanı & Embedding
+chromadb>=0.5.0
+
+# LLM ve Embedding API İstemcileri
+google-genai>=1.0.0
+openai>=1.40.0
+
+# Backend API Servisi
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.8.0
+
+# Hızlı Web Arayüzü (Demo/Prototip)
+streamlit>=1.38.0
+
+# Yardımcı Araçlar
+python-dotenv>=1.0.0
+tqdm>=4.66.0
