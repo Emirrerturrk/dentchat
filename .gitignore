@@ -16,3 +16,6 @@ __pycache__/
 
 # Ham Doküman Havuzu (160+ MB olduğu için repoyu şişirmemesi adına hariç tutulur)
 pdfler/
+
+# Yerel OCR Önbelleği
+.ocr_cache/

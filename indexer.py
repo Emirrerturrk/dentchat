@@ -95,6 +95,10 @@ def index_documents():
             print("  ⚠️ Metin çıkarılamadı veya boş.")
             continue
 
+        ocr_count = sum(1 for c in raw_chunks if c.get("metadata", {}).get("is_ocr"))
+        vec_count = len(raw_chunks) - ocr_count
+        print(f"  📄 Toplam {len(raw_chunks)} sayfa okundu (Vektörel: {vec_count}, Görsel/OCR: {ocr_count})")
+
         new_ids = []
         new_metadatas = []
         new_documents = []
