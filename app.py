@@ -274,8 +274,13 @@ def main():
                 # Önceki mesajları bağlam olarak ilet
                 history = st.session_state.messages[:-1] if len(st.session_state.messages) > 1 else []
                 result = engine.ask(prompt_to_use, chat_history=history, category_filter=selected_category)
-                answer = result["answer"]
-                sources = result["sources"]
+                if not result or not isinstance(result, dict):
+                    result = {
+                        "answer": "Yapay zeka yanıtı üretilirken beklenmeyen bir hata oluştu.",
+                        "sources": []
+                    }
+                answer = result.get("answer", "Yanıt alınamadı.")
+                sources = result.get("sources", [])
 
                 st.markdown(answer)
                 render_copy_button(answer, f"new_{len(st.session_state.messages)}")

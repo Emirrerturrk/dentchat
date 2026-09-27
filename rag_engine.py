@@ -39,14 +39,15 @@ CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 COLLECTION_NAME = "dis_hekimligi_rag"
 
 GUARDRAIL_SYSTEM_PROMPT = """Sen diş hekimliği fakültesi ders notları ve medikal kılavuzlar konusunda uzmanlaşmış akademik bir asistansın.
-Görevin, kullanıcının sorularını YALNIZCA sana sağlanan 'BAĞLAM' (Ders Slaytları ve Sayfaları) içeriğine sadık kalarak, doğrudan, akıcı ve net bir dille yanıtlamaktır.
+Görevin, kullanıcının sorularını sana sağlanan 'BAĞLAM' (Ders Slaytları ve Sayfaları) içeriğine sadık kalarak KAPSAMLI, DETAYLI, ÖĞRETİCİ ve AKADEMİK bir derinlikle yanıtlamaktır.
 
-KAT'İ KURALLAR:
-1. SADECE SAĞLANAN BAĞLAM: Sağlanan metin parçalarında açıkça yer almayan hiçbir bilgiyi kendi genel eğitiminden uydurma, tahmin etme veya ekleme yapma.
-2. BELGELERDE YOKSA: Eğer sorunun yanıtı sağlanan metin parçalarında açıkça yer almıyorsa veya yetersizse, KESİNLİKLE şunu söyle:
-   "Sağlanan ders notları ve dokümanlarda bu konuyla ilgili bilgi yer almamaktadır."
-3. METİN İÇİNDE ASLA KAYNAK/SLAYT YAZMA: Yanıt metninin içerisine KESİNLİKLE [Kaynak: ...], (Sayfa: ...), [Slayt ...] veya dosya isimleri YAZMA. Kaynaklar kullanıcı arayüzü tarafından otomatik olarak alt kısma eklenecektir. Metin tamamen temiz, akıcı ve doğrudan soruya odaklı olmalıdır.
-4. SORUMLULUK REDDİ YAZMA: Yanıtın sonuna sorumluluk reddi, telif veya sistem notu ekleme; yalnızca sorulan soruya odaklan.
+YAPILANDIRMA VE ANLATIM KURALLARI:
+1. DETAYLI VE AÇIKLAYICI OL: Yanıtlarını asla 1-2 cümlelik kısa özetlerle geçiştirme. Konuyu derinlemesine, neden-sonuç ilişkilerini ve biyolojik/klinik mekanizmaları içerecek şekilde doyurucu bir ders notu kalitesinde açıkla.
+2. BAŞLIK VE MADDELENDİRME KULLAN: Yanıtını okunaklı kılmak için uygun alt başlıklar (###), madde işaretleri (* veya -) ve kavram vurguları (**kalın**) kullan.
+3. BAĞLAMDAKİ TÜM İLGİLİ BİLGİLERİ SENTEZLE: Sağlanan parçalarda geçen ilişkili tüm kavramları (örneğin sinir lifleri, fizyolojik süreçler, anatomik yapılar, tedavi ajanları vb.) cevaba dahil et.
+4. DOĞRULUK VE SADAKAT: Sağlanan ders notlarında hiç yer almayan uydurma bilgileri kesinlikle ekleme. Sadece soru tamamen ders notlarının dışındaysa 'Sağlanan ders notları ve dokümanlarda bu konuyla ilgili bilgi yer almamaktadır.' de.
+5. METİN İÇİNDE KAYNAK YAZMA: Yanıt metninin içerisine KESİNLİKLE [Kaynak: ...], (Sayfa: ...), [Slayt ...] veya dosya isimleri YAZMA. Kaynaklar arayüz tarafından otomatik olarak alt kısma eklenecektir.
+6. SORUMLULUK REDDİ YAZMA: Yanıtın sonuna yasal sorumluluk reddi veya sistem notu ekleme.
 """
 
 
@@ -168,8 +169,8 @@ KURAL: Soruya cevap verme. Sadece veritabanında aranacak tek bir Türkçe arama
         # 1. Takip eden sorularda konuyu kaybetmemek için sorguyu bağlamsallaştır
         search_query = self.contextualize_question(question, chat_history=chat_history)
 
-        # 2. Vektör veritabanından ilgili slaytları çek
-        relevant_chunks = self.retrieve(search_query, top_k=4, category_filter=category_filter)
+        # 2. Vektör veritabanından ilgili slaytları çek (Geniş bağlam için top_k=7)
+        relevant_chunks = self.retrieve(search_query, top_k=7, category_filter=category_filter)
 
         if not relevant_chunks:
             return {
@@ -202,13 +203,13 @@ KURAL: Soruya cevap verme. Sadece veritabanında aranacak tek bir Türkçe arama
                 prev_lines.append(f"{r}: {str(msg.get('content', ''))[:200]}")
             prev_chat_context = "ÖNCEKİ DİYALOG BAĞLAMI:\n" + "\n".join(prev_lines) + "\n\n"
 
-        user_prompt = f"""{prev_chat_context}AŞAĞIDAKİ DERS DOKÜMANLARINI DİKKATLİCE İNCELE VE YANITLA:
+        user_prompt = f"""{prev_chat_context}AŞAĞIDAKİ DERS DOKÜMANLARINI DİKKATLİCE İNCELE VE KAPSAMLI BİR AKADEMİK DİLLE YANITLA:
 
 {full_context}
 
 KULLANICI SORUSU: {question}
 
-ÖNEMLİ KURAL: Yanıtının içine KESİNLİKLE dosya adı, sayfa/slayt numarası veya '[Kaynak: ...]' yazma. Eğer önceki diyalogla ilgili bir devam sorusuysa önceki cevabınla tutarlı, doğrudan ve anlaşılır bir Türkçe yanıt ver:"""
+TALİMAT: Bu soruyu sağlanan ders notlarındaki tüm ilgili mekanizmaları, süreçleri, etiyolojiyi ve klinik detayları sentezleyerek; alt başlıklar, maddeler ve detaylı açıklamalar içeren zengin, doyurucu bir akademik ders anlatımıyla yanıtla. Yanıtın içine dosya adı veya sayfa referansı yazma:"""
 
         import time
         answer_text = ""
@@ -240,18 +241,18 @@ KULLANICI SORUSU: {question}
                     }
                 time.sleep(2 * (attempt + 1))
 
-            # Metin içindeki olası kaynak etiketlerini ve sorumluluk notlarını temizle
-            clean_answer = re.sub(r"\[Kaynak:[^\]]*\]", "", answer_text, flags=re.IGNORECASE)
-            clean_answer = re.sub(r"\(Kaynak:[^\)]*\)", "", clean_answer, flags=re.IGNORECASE)
-            clean_answer = re.sub(r"\[Doküman:[^\]]*\]", "", clean_answer, flags=re.IGNORECASE)
-            clean_answer = re.sub(r"\[Slayt:[^\]]*\]", "", clean_answer, flags=re.IGNORECASE)
-            clean_answer = re.sub(r"\*?Not:\s*Bu sistem akademik.*$", "", clean_answer, flags=re.IGNORECASE | re.MULTILINE)
-            # Çift boşlukları ve gereksiz satır sonlarını toparla
-            clean_answer = re.sub(r"[ \t]+", " ", clean_answer)
-            clean_answer = re.sub(r"\n{3,}", "\n\n", clean_answer)
-            clean_answer = clean_answer.strip()
+        # Metin içindeki olası kaynak etiketlerini ve sorumluluk notlarını temizle
+        clean_answer = re.sub(r"\[Kaynak:[^\]]*\]", "", answer_text, flags=re.IGNORECASE)
+        clean_answer = re.sub(r"\(Kaynak:[^\)]*\)", "", clean_answer, flags=re.IGNORECASE)
+        clean_answer = re.sub(r"\[Doküman:[^\]]*\]", "", clean_answer, flags=re.IGNORECASE)
+        clean_answer = re.sub(r"\[Slayt:[^\]]*\]", "", clean_answer, flags=re.IGNORECASE)
+        clean_answer = re.sub(r"\*?Not:\s*Bu sistem akademik.*$", "", clean_answer, flags=re.IGNORECASE | re.MULTILINE)
+        # Çift boşlukları ve gereksiz satır sonlarını toparla
+        clean_answer = re.sub(r"[ \t]+", " ", clean_answer)
+        clean_answer = re.sub(r"\n{3,}", "\n\n", clean_answer)
+        clean_answer = clean_answer.strip()
 
-            return {
-                "answer": clean_answer,
-                "sources": sources
-            }
+        return {
+            "answer": clean_answer,
+            "sources": sources
+        }
